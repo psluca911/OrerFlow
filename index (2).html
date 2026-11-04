@@ -1,0 +1,1713 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OrderFlow - Gestione Ristorante, Magazzino & Semilavorati</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Puter.js per IA Generativa Gratuita Serverless -->
+  <script src="https://js.puter.com/v2/"></script>
+  <style>
+    .active-tab {
+      border-bottom: 3px solid #f59e0b;
+      color: #f59e0b;
+      font-weight: 600;
+    }
+    .active-admin-subtab {
+      background-color: #f59e0b;
+      color: #0f172a;
+      font-weight: 700;
+    }
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .animate-pulse-slow {
+      animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col">
+
+  <!-- Header & Navigazione Ruoli -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-50 shadow-md">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <i data-lucide="utensils" class="w-8 h-8 text-amber-500"></i>
+        <h1 class="text-2xl font-bold tracking-wide">Order<span class="text-amber-500">Flow</span></h1>
+      </div>
+
+      <!-- Switcher delle Viste -->
+      <nav class="flex flex-wrap justify-center gap-1.5 md:gap-2 bg-slate-900 p-1.5 rounded-lg border border-slate-700 text-xs md:text-sm">
+        <button onclick="switchTab('cliente')" id="tab-cliente" class="px-3 py-2 rounded-md transition-all active-tab flex items-center gap-1.5">
+          <i data-lucide="smartphone" class="w-4 h-4"></i> Menu Cliente
+        </button>
+        <button onclick="switchTab('cucina')" id="tab-cucina" class="px-3 py-2 rounded-md transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5 relative">
+          <i data-lucide="chef-hat" class="w-4 h-4"></i> Cucina (KDS)
+          <span id="kitchen-alert-badge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></span>
+        </button>
+        <button onclick="switchTab('monitor')" id="tab-monitor" class="px-3 py-2 rounded-md transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5">
+          <i data-lucide="tv" class="w-4 h-4"></i> Monitor Ritiro
+        </button>
+        <button onclick="switchTab('stats')" id="tab-stats" class="px-3 py-2 rounded-md transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5">
+          <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Statistiche
+        </button>
+        <button onclick="switchTab('admin')" id="tab-admin" class="px-3 py-2 rounded-md transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5">
+          <i data-lucide="settings" class="w-4 h-4"></i> Magazzino & Admin
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
+
+    <!-- ==================== VISTA CLIENTE ==================== -->
+    <section id="view-cliente" class="space-y-6">
+      
+      <!-- Lista Ordini Attivi del Cliente -->
+      <div id="customer-active-orders-container" class="hidden space-y-3">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+          <i data-lucide="clipboard-list" class="w-4 h-4"></i> I tuoi ordini in corso / recenti
+        </h3>
+        <div id="customer-orders-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Renderizzato via JS -->
+        </div>
+      </div>
+
+      <!-- Layout Menu + Carrello -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Menu -->
+        <div class="lg:col-span-2 space-y-6">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-800">
+            <div class="flex gap-2 overflow-x-auto w-full sm:w-auto pb-1" id="category-filters-container">
+              <!-- Generato via JS -->
+            </div>
+            <!-- Barra di Ricerca Piatti nel Menu -->
+            <div class="relative w-full sm:w-64">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="text" id="menu-search-input" oninput="renderMenu(currentCategoryFilter)" placeholder="Cerca piatto nel menu..." class="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="menu-items-grid">
+            <!-- Renderizzato via JS -->
+          </div>
+        </div>
+
+        <!-- Carrello -->
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl h-fit sticky top-24 space-y-4 shadow-xl">
+          <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+            <h3 class="font-bold text-lg flex items-center gap-2">
+              <i data-lucide="shopping-bag" class="text-amber-500"></i> Il tuo Ordine
+            </h3>
+            <span id="cart-count" class="bg-amber-500 text-slate-950 font-bold text-xs px-2.5 py-1 rounded-full">0 elementi</span>
+          </div>
+
+          <div id="cart-items" class="space-y-3 max-h-64 overflow-y-auto pr-1">
+            <p class="text-sm text-slate-400 text-center py-6">Il carrello è vuoto. Aggiungi i piatti dal menu!</p>
+          </div>
+
+          <div class="space-y-2 pt-3 border-t border-slate-700">
+            <label class="block text-xs font-semibold text-slate-400 uppercase">Tavolo o Nome Cliente</label>
+            <input type="text" id="table-input" placeholder="Es. Tavolo 5 oppure Marco" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 text-sm">
+          </div>
+
+          <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700 flex justify-between items-center text-xs">
+            <span class="text-slate-400 flex items-center gap-1.5">
+              <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-400"></i> Attesa stimata:
+            </span>
+            <span id="cart-estimated-time" class="font-bold text-amber-400">~0 min</span>
+          </div>
+
+          <div class="pt-2 border-t border-slate-700 space-y-3">
+            <div class="flex justify-between items-center font-bold text-lg">
+              <span>Totale:</span>
+              <span id="cart-total" class="text-amber-500">€0.00</span>
+            </div>
+            <button onclick="submitOrder()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-3 rounded-lg transition duration-200 shadow-lg shadow-amber-500/10 flex items-center justify-center gap-2">
+              <i data-lucide="send" class="w-4 h-4"></i> Invia Ordine in Cucina
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== VISTA CUCINA (KDS) ==================== -->
+    <section id="view-cucina" class="hidden space-y-8">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+        <div>
+          <h2 class="text-2xl font-bold flex items-center gap-2">
+            <i data-lucide="chef-hat" class="text-amber-500"></i> Display Cucina (KDS)
+          </h2>
+          <p class="text-sm text-slate-400">Gestione comande, batching con note e cronometri in tempo reale</p>
+        </div>
+        <div class="flex items-center gap-2 text-sm text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+          <span>Cucina Attiva</span>
+        </div>
+      </div>
+
+      <!-- Banner Avvisi Scorte Basse in Cucina -->
+      <div id="kitchen-low-stock-banner" class="hidden bg-amber-950/30 border border-amber-500/50 p-4 rounded-xl flex items-start gap-3 shadow-lg">
+        <i data-lucide="alert-triangle" class="w-6 h-6 text-amber-400 shrink-0 mt-0.5"></i>
+        <div class="space-y-1">
+          <h4 class="font-bold text-amber-400 text-sm">Attenzione: Ingredienti o Semilavorati in Scorta Bassa!</h4>
+          <p id="kitchen-low-stock-list" class="text-xs text-slate-300"></p>
+        </div>
+      </div>
+
+      <!-- Batching con Note -->
+      <div class="bg-slate-800/90 border border-amber-500/40 rounded-2xl p-5 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+          <h3 class="font-extrabold text-lg text-amber-400 flex items-center gap-2">
+            <i data-lucide="layers" class="w-5 h-5"></i> Preparazione Ottimizzata (Batching con Note)
+          </h3>
+          <span class="text-xs bg-amber-500/20 text-amber-300 font-semibold px-2.5 py-1 rounded-full">Quantità totali e personalizzazioni</span>
+        </div>
+        <div id="kitchen-batch-summary" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Renderizzato via JS -->
+        </div>
+      </div>
+
+      <!-- Comande Singole -->
+      <div class="space-y-4">
+        <h3 class="font-bold text-lg text-slate-200 flex items-center gap-2">
+          <i data-lucide="receipt" class="w-5 h-5 text-amber-500"></i> Dettaglio Comande per Tavolo
+        </h3>
+        <div id="kitchen-orders-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Renderizzato via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VISTA MONITOR RITIRO ==================== -->
+    <section id="view-monitor" class="hidden space-y-6 text-center">
+      <div class="border-b border-slate-800 pb-4">
+        <h2 class="text-3xl font-extrabold text-amber-500 uppercase tracking-widest">Ordini Pronti per il Ritiro</h2>
+        <p class="text-slate-400 text-sm mt-1">Passa al banco quando vedi il tuo codice</p>
+      </div>
+
+      <div id="ready-orders-display" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-4">
+        <!-- Renderizzato via JS -->
+      </div>
+    </section>
+
+    <!-- ==================== VISTA STATISTICHE & ANALYTICS ==================== -->
+    <section id="view-stats" class="hidden space-y-8">
+      <div class="border-b border-slate-800 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 class="text-2xl font-bold flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="text-amber-500"></i> Statistiche & Esplorazione Avanzata
+          </h2>
+          <p class="text-sm text-slate-400">Clicca sulle card per esplorare lo storico ordini e l'esploso incassi per categoria</p>
+        </div>
+
+        <!-- Selettori Filtri Temporali -->
+        <div class="flex flex-wrap items-center gap-2 bg-slate-800 p-2 rounded-xl border border-slate-700 text-xs">
+          <div class="flex items-center gap-1">
+            <span class="text-slate-400 font-semibold">Scala:</span>
+            <select id="stat-scale-select" onchange="onStatsFilterChange()" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-amber-400 font-bold focus:outline-none focus:border-amber-500">
+              <option value="giorno">Giorno</option>
+              <option value="settimana">Settimana</option>
+              <option value="mese">Mese</option>
+              <option value="personalizzata">Personalizzata</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="text-slate-400 font-semibold">Periodo:</span>
+            <select id="stat-period-select" onchange="onStatsFilterChange()" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100 font-medium focus:outline-none focus:border-amber-500">
+              <option value="oggi">Oggi</option>
+              <option value="ieri">Ieri</option>
+              <option value="ultimi7">Ultimi 7 giorni</option>
+              <option value="ultimi30">Ultimi 30 giorni</option>
+              <option value="tutti" selected>Tutto il periodo</option>
+            </select>
+          </div>
+          <!-- Date custom se scala personalizzata -->
+          <div id="stat-custom-dates" class="hidden flex items-center gap-1">
+            <input type="date" id="stat-date-start" onchange="onStatsFilterChange()" class="bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-slate-100">
+            <span class="text-slate-400">-</span>
+            <input type="date" id="stat-date-end" onchange="onStatsFilterChange()" class="bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-slate-100">
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Cards Interattive -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Card Incasso (Cliccabile) -->
+        <div onclick="openRevenueBreakdownModal()" class="bg-slate-800 border border-slate-700 hover:border-emerald-500 p-5 rounded-xl cursor-pointer transition transform hover:-translate-y-0.5 shadow-lg relative group">
+          <div class="flex justify-between items-start">
+            <span class="text-xs text-slate-400 uppercase font-semibold">Incasso Totale</span>
+            <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-400 group-hover:scale-110 transition"></i>
+          </div>
+          <div id="stat-total-revenue" class="text-3xl font-extrabold text-emerald-400 mt-2">€0.00</div>
+          <span class="text-[11px] text-emerald-400/80 font-medium mt-1 block flex items-center gap-1">
+            <i data-lucide="mouse-pointer-click" class="w-3 h-3"></i> Clicca per esploso categorie
+          </span>
+        </div>
+
+        <!-- Card Ordini (Cliccabile) -->
+        <div onclick="openOrdersHistoryModal()" class="bg-slate-800 border border-slate-700 hover:border-amber-500 p-5 rounded-xl cursor-pointer transition transform hover:-translate-y-0.5 shadow-lg relative group">
+          <div class="flex justify-between items-start">
+            <span class="text-xs text-slate-400 uppercase font-semibold">Ordini Totali</span>
+            <i data-lucide="list-ordered" class="w-4 h-4 text-amber-400 group-hover:scale-110 transition"></i>
+          </div>
+          <div id="stat-total-orders" class="text-3xl font-extrabold text-amber-400 mt-2">0</div>
+          <span class="text-[11px] text-amber-400/80 font-medium mt-1 block flex items-center gap-1">
+            <i data-lucide="mouse-pointer-click" class="w-3 h-3"></i> Clicca per vedere lo storico
+          </span>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl">
+          <span class="text-xs text-slate-400 uppercase font-semibold">Piatto Più Venduto</span>
+          <div id="stat-top-dish" class="text-lg font-bold text-slate-100 mt-2 truncate">--</div>
+          <span class="text-[11px] text-slate-400 mt-1 block">Nel periodo selezionato</span>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl">
+          <span class="text-xs text-slate-400 uppercase font-semibold">Tempo Reale Medio</span>
+          <div id="stat-avg-time" class="text-3xl font-extrabold text-blue-400 mt-2">~0 min</div>
+          <span class="text-[11px] text-slate-400 mt-1 block">Evasione comande</span>
+        </div>
+      </div>
+
+      <!-- Sezione Avvisi Scorte Critiche nelle Statistiche -->
+      <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl space-y-4 shadow-xl">
+        <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2">
+          <i data-lucide="alert-octagon" class="w-5 h-5 text-amber-500"></i> Controllo Magazzino & Semilavorati (Sotto Soglia)
+        </h3>
+        <p class="text-xs text-slate-400">Elenco di materie prime e preparazioni intermedie che hanno raggiunto o superato la soglia minima</p>
+        <div id="stats-low-stock-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <!-- Renderizzato via JS -->
+        </div>
+      </div>
+
+      <!-- Sezione Grafico & Consumi Fornitori -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Grafico a Barre Piatti Più Venduti -->
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl space-y-4">
+          <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2">
+            <i data-lucide="trending-up" class="w-5 h-5"></i> Piatti Più Ordinati nel Periodo
+          </h3>
+          <div id="dish-sales-chart" class="space-y-3 pt-2">
+            <!-- Renderizzato via JS -->
+          </div>
+        </div>
+
+        <!-- Suggerimenti Riordino Materie Prime (Fornitori) -->
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl space-y-4">
+          <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2">
+            <i data-lucide="truck" class="w-5 h-5"></i> Stima Fabbisogno Materie Prime (Fornitori)
+          </h3>
+          <p class="text-xs text-slate-400">Consumo totale di ingredienti grezzi basato sugli ordini effettuati</p>
+          <div id="supplier-ingredients-list" class="space-y-2 max-h-72 overflow-y-auto pr-1">
+            <!-- Renderizzato via JS -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== VISTA GESTIONALE & ADMIN (A SCHEDE / SUB-TABS) ==================== -->
+    <section id="view-admin" class="hidden space-y-6">
+      <div class="border-b border-slate-800 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 class="text-2xl font-bold flex items-center gap-2">
+            <i data-lucide="settings" class="text-amber-500"></i> Gestionale Snello (Menu, Semilavorati & Magazzino)
+          </h2>
+          <p class="text-sm text-slate-400">Gestisci tutto in modo pulito e organizzato tramite le sezioni sottostanti</p>
+        </div>
+
+        <!-- Sotto-Sezioni Admin (Sub-Tabs) -->
+        <div class="flex flex-wrap gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs">
+          <button onclick="switchAdminSubTab('piatti')" id="admin-subtab-piatti" class="px-3 py-1.5 rounded-lg active-admin-subtab transition">Piatti & Ricette</button>
+          <button onclick="switchAdminSubTab('semilavorati')" id="admin-subtab-semilavorati" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white transition">Semilavorati</button>
+          <button onclick="switchAdminSubTab('magazzino')" id="admin-subtab-magazzino" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white transition">Magazzino Grezzo</button>
+          <button onclick="switchAdminSubTab('categorie')" id="admin-subtab-categorie" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white transition">Categorie</button>
+        </div>
+      </div>
+
+      <!-- ================= SOTTO-SEZIONE 1: PIATTI & RICETTE ================= -->
+      <div id="admin-section-piatti" class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Form Aggiungi Piatto -->
+          <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl h-fit space-y-4 shadow-xl">
+            <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2">
+              <i data-lucide="plus-circle" class="w-5 h-5"></i> Nuovo Piatto
+            </h3>
+            <form id="add-dish-form" onsubmit="addNewDish(event)" class="space-y-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Nome Piatto</label>
+                <input type="text" id="dish-name" required placeholder="Es. Tagliatelle al Ragù" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Categoria</label>
+                <select id="dish-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+                  <!-- Popolato via JS -->
+                </select>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Prezzo (€)</label>
+                  <input type="number" step="0.50" id="dish-price" required placeholder="10.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Tempo(m)</label>
+                  <input type="number" min="1" id="dish-prep-time" required value="12" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+                </div>
+              </div>
+
+              <!-- Builder Ricetta (Pescando da Semilavorati o Materie Prime) -->
+              <div class="space-y-2 pt-2 border-t border-slate-700">
+                <label class="block text-xs font-semibold text-amber-400 uppercase">Ingredienti / Basi della Ricetta</label>
+                <div class="flex gap-2">
+                  <select id="new-recipe-ing-select" class="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-100 text-xs flex-grow focus:outline-none focus:border-amber-500">
+                    <!-- Popolato via JS -->
+                  </select>
+                  <input type="number" step="0.1" id="new-recipe-ing-qty" placeholder="Dose" class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-100 text-xs text-center focus:outline-none focus:border-amber-500">
+                  <button type="button" onclick="addIngredientToNewDishForm()" class="bg-slate-700 hover:bg-amber-500 hover:text-slate-950 px-3 py-1.5 rounded text-xs font-bold transition">Aggiungi</button>
+                </div>
+                <div id="new-dish-recipe-list" class="bg-slate-900 p-2 rounded border border-slate-700 space-y-1.5 max-h-36 overflow-y-auto">
+                  <span class="text-slate-500 text-xs italic block text-center py-2">Nessun ingrediente aggiunto</span>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Allergeni (Auto + Manuale)</label>
+                <input type="text" id="dish-allergens" placeholder="Rilevati automaticamente..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">URL Immagine (Vuoto = Generazione Automatica con IA)</label>
+                <input type="url" id="dish-image" placeholder="Lascia vuoto per generare con IA..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Descrizione</label>
+                <textarea id="dish-desc" rows="2" placeholder="Dettagli del piatto..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500"></textarea>
+              </div>
+              <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-2.5 rounded-lg transition duration-200 flex items-center justify-center gap-2">
+                <i data-lucide="plus" class="w-4 h-4"></i> Salva nel Menu
+              </button>
+            </form>
+          </div>
+
+          <!-- Lista Piatti con Ricerca -->
+          <div class="lg:col-span-2 bg-slate-800 border border-slate-700 p-5 rounded-xl space-y-4 shadow-xl">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-700 pb-3">
+              <h3 class="font-bold text-lg text-slate-100 flex items-center gap-2">
+                <i data-lucide="list" class="w-5 h-5 text-amber-500"></i> Piatti in Menu
+              </h3>
+              <div class="relative w-full sm:w-60">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+                <input type="text" id="admin-dish-search" oninput="renderAdminList()" placeholder="Cerca piatto..." class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500">
+              </div>
+            </div>
+            <div id="admin-dish-list" class="space-y-3 max-h-[550px] overflow-y-auto pr-2">
+              <!-- Renderizzato via JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= SOTTO-SEZIONE 2: SEMILAVORATI (PREPARAZIONI INTERMEDIE) ================= -->
+      <div id="admin-section-semilavorati" class="hidden space-y-6">
+        <!-- Form Aggiungi Semilavorato -->
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-xl space-y-4">
+          <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2">
+            <i data-lucide="layers" class="w-5 h-5"></i> Aggiungi Preparazione Intermedia (Semilavorato)
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <input type="text" id="new-semi-name" placeholder="Nome (es. Ragù di Carne)..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+            <input type="number" step="0.1" id="new-semi-qty" placeholder="Qta iniziale pronta..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+            <input type="text" id="new-semi-unit" placeholder="Unità (es. g, ml)..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+            <input type="number" step="0.1" id="new-semi-threshold" placeholder="Soglia allarme scorta..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+          </div>
+          <button onclick="addNewSemilavorato()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm transition flex items-center gap-1.5">
+            <i data-lucide="plus" class="w-4 h-4"></i> Crea Semilavorato
+          </button>
+        </div>
+
+        <!-- Griglia Semilavorati con pulsante "Produci Lotto" -->
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-xl space-y-4">
+          <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+            <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2">
+              <i data-lucide="package" class="w-5 h-5"></i> Gestione Semilavorati & Produzione Lotti
+            </h3>
+            <span class="text-xs text-slate-400">Clicca "Produci Lotto" per scalare gli ingredienti grezzi e aumentare la base pronta</span>
+          </div>
+          <div id="admin-semilavorati-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Renderizzato via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= SOTTO-SEZIONE 3: MAGAZZINO GREZZO ================= -->
+      <div id="admin-section-magazzino" class="hidden space-y-6">
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-xl space-y-4">
+          <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i> Aggiungi Materia Prima Grezza
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-5 gap-3">
+            <input type="text" id="new-mat-name" placeholder="Nome ingrediente..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+            <input type="number" step="0.1" id="new-mat-qty" placeholder="Quantità..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+            <input type="text" id="new-mat-unit" placeholder="Unità (g, pz, lt)..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+            <input type="number" step="0.1" id="new-mat-threshold" placeholder="Soglia allarme..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+            <button onclick="addNewRawMaterial()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-1.5">
+              <i data-lucide="plus" class="w-4 h-4"></i> Aggiungi
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-xl space-y-4">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-700 pb-3">
+            <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2">
+              <i data-lucide="warehouse" class="w-5 h-5"></i> Magazzino Materie Prime (Modifica Inline)
+            </h3>
+            <div class="relative w-full sm:w-60">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="text" id="admin-mat-search" oninput="renderAdminRawMaterials()" placeholder="Cerca ingrediente..." class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500">
+            </div>
+          </div>
+          <div id="admin-raw-materials-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <!-- Renderizzato via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= SOTTO-SEZIONE 4: CATEGORIE ================= -->
+      <div id="admin-section-categorie" class="hidden space-y-6">
+        <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-xl space-y-4">
+          <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2">
+            <i data-lucide="folder-tree" class="w-5 h-5"></i> Gestione Categorie Menu
+          </h3>
+          <div class="flex flex-col sm:flex-row gap-3 items-center">
+            <input type="text" id="new-category-name" placeholder="Nome nuova categoria..." class="flex-grow bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500 w-full sm:w-auto">
+            <button onclick="addNewCategory()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm transition flex items-center gap-1.5 w-full sm:w-auto justify-center">
+              <i data-lucide="plus" class="w-4 h-4"></i> Aggiungi Categoria
+            </button>
+          </div>
+          <div id="admin-categories-list" class="flex flex-wrap gap-2 pt-2">
+            <!-- Renderizzato via JS -->
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MODALE MODIFICA PIATTO O SEMILAVORATO COMPLETO -->
+  <div id="edit-recipe-modal" class="hidden fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 id="modal-dish-title" class="font-bold text-lg text-amber-400 flex items-center gap-2">
+          <i data-lucide="edit-3" class="w-5 h-5"></i> Modifica Piatto & Ricetta
+        </h3>
+        <button onclick="closeEditRecipeModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <!-- Campi generali del piatto (visibili solo se modifichi un piatto) -->
+      <div id="dish-general-fields" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Nome Piatto</label>
+          <input type="text" id="modal-dish-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs focus:outline-none focus:border-amber-500">
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Categoria</label>
+            <select id="modal-dish-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-slate-100 text-xs focus:outline-none focus:border-amber-500">
+              <!-- Popolato via JS -->
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Prezzo (€)</label>
+            <input type="number" step="0.50" id="modal-dish-price" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-slate-100 text-xs focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Tempo(m)</label>
+            <input type="number" min="1" id="modal-dish-time" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-slate-100 text-xs focus:outline-none focus:border-amber-500">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">URL Immagine</label>
+          <input type="url" id="modal-dish-image" placeholder="Lascia vuoto per IA..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs focus:outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Descrizione</label>
+          <textarea id="modal-dish-desc" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs focus:outline-none focus:border-amber-500"></textarea>
+        </div>
+      </div>
+
+      <div class="space-y-2 pt-2 border-t border-slate-700">
+        <label class="block text-xs font-semibold text-amber-400 uppercase">Ingredienti / Basi Necessarie</label>
+        <div class="flex gap-2">
+          <select id="modal-recipe-ing-select" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs flex-grow focus:outline-none focus:border-amber-500">
+            <!-- Popolato via JS -->
+          </select>
+          <input type="number" step="0.1" id="modal-recipe-ing-qty" placeholder="Dose" class="w-24 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs text-center focus:outline-none focus:border-amber-500">
+          <button type="button" onclick="addIngredientToModalRecipe()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs transition">Aggiungi</button>
+        </div>
+
+        <div id="modal-recipe-items-list" class="bg-slate-900 p-3 rounded-xl border border-slate-700 space-y-2 max-h-40 overflow-y-auto">
+          <!-- Renderizzato via JS -->
+        </div>
+      </div>
+
+      <div id="modal-allergens-container" class="space-y-1.5 pt-2 border-t border-slate-700">
+        <label class="block text-xs font-semibold text-slate-400 uppercase">Allergeni del Piatto</label>
+        <input type="text" id="modal-dish-allergens" placeholder="Es. Glutine, Lattosio" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-xs focus:outline-none focus:border-amber-500">
+      </div>
+
+      <div class="pt-3 border-t border-slate-700 flex justify-end gap-2">
+        <button onclick="closeEditRecipeModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs transition">Salva e Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE PRODUCI LOTTO SEMILAVORATO -->
+  <div id="produce-lot-modal" class="hidden fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 id="produce-lot-title" class="font-bold text-lg text-amber-400 flex items-center gap-2">
+          <i data-lucide="hammer" class="w-5 h-5"></i> Produci Lotto
+        </h3>
+        <button onclick="closeProduceLotModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <p class="text-xs text-slate-400">Inserisci quanto intendi produrre. Il sistema scala automaticamente gli ingredienti grezzi necessari dal magazzino.</p>
+      
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Quantità da produrre</label>
+          <input type="number" step="1" id="produce-lot-qty-input" placeholder="Es. 1000" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-amber-500">
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-700 flex justify-end gap-2">
+        <button onclick="closeProduceLotModal()" class="px-3 py-2 bg-slate-700 text-slate-300 font-bold rounded-lg text-xs">Annulla</button>
+        <button onclick="confirmProduceLot()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs transition">Conferma Produzione</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE ESPLOSO INCASSI PER CATEGORIA -->
+  <div id="revenue-modal" class="hidden fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-emerald-400 flex items-center gap-2">
+          <i data-lucide="pie-chart" class="w-5 h-5"></i> Esploso Introiti per Categoria
+        </h3>
+        <button onclick="closeRevenueModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <p id="revenue-modal-subtitle" class="text-xs text-slate-400">Dettaglio fatturato basato sul periodo selezionato</p>
+      <div id="revenue-modal-body" class="space-y-3 max-h-80 overflow-y-auto pr-1"></div>
+      <div class="pt-3 border-t border-slate-700 flex justify-end">
+        <button onclick="closeRevenueModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-lg text-xs transition">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE STORICO ORDINI FILTRATO -->
+  <div id="orders-history-modal" class="hidden fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-2xl w-full space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-amber-400 flex items-center gap-2">
+          <i data-lucide="list-ordered" class="w-5 h-5"></i> Storico Ordini (Periodo Selezionato)
+        </h3>
+        <button onclick="closeOrdersHistoryModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <p id="orders-modal-subtitle" class="text-xs text-slate-400">Elenco completo delle comande registrate nel filtro attivo</p>
+      <div id="orders-modal-body" class="space-y-3 max-h-96 overflow-y-auto pr-1"></div>
+      <div class="pt-3 border-t border-slate-700 flex justify-end">
+        <button onclick="closeOrdersHistoryModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold rounded-lg text-xs transition">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script Applicativo -->
+  <script>
+    // --- DIZIONARIO MAPPATURA ALLERGENI ---
+    const ingredientAllergenMap = {
+      "Spaghetti": ["Glutine"],
+      "Penne": ["Glutine"],
+      "Pane": ["Glutine"],
+      "Birra 50cl": ["Glutine"],
+      "Tagliatelle": ["Glutine", "Uova"],
+      "Guanciale": [],
+      "Tuorlo": ["Uova"],
+      "Pecorino": ["Lattosio"],
+      "Formaggi": ["Lattosio"],
+      "Salumi Misti": [],
+      "Pomodorini": [],
+      "Aglio": [],
+      "Basilico": [],
+      "Peperoncino": [],
+      "Sugo Pomodoro": [],
+      "Macinato Manzo": [],
+      "Rosmarino": [],
+      "Acqua 75cl": []
+    };
+
+    function autoDetectAllergens(recipeArray) {
+      let detected = new Set();
+      recipeArray.forEach(ing => {
+        Object.entries(ingredientAllergenMap).forEach(([key, allergens]) => {
+          if (ing.name.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(ing.name.toLowerCase())) {
+            allergens.forEach(a => detected.add(a));
+          }
+        });
+        if (semilavorati[ing.name] && semilavorati[ing.name].recipe) {
+          semilavorati[ing.name].recipe.forEach(subIng => {
+            Object.entries(ingredientAllergenMap).forEach(([key, allergens]) => {
+              if (subIng.name.toLowerCase().includes(key.toLowerCase())) {
+                allergens.forEach(a => detected.add(a));
+              }
+            });
+          });
+        }
+      });
+      return Array.from(detected);
+    }
+
+    // --- FALLBACK STOCK CON HASH VERIFICATI ---
+    function getStockFoodImage(name) {
+      const lowerName = name.toLowerCase();
+      let photoId = "1628258334105-2a0b3d6efee1";
+
+      if (lowerName.includes("bruschetta") || lowerName.includes("pane")) {
+        photoId = "1572695157366-5e585ab2b69f";
+      } else if (lowerName.includes("tagliatelle") || lowerName.includes("pasta") || lowerName.includes("ragù")) {
+        photoId = "1551183053-bf91a1d81141";
+      } else if (lowerName.includes("carbonara") || lowerName.includes("spaghetti")) {
+        photoId = "1612874742237-6526221588e3";
+      } else if (lowerName.includes("carne") || lowerName.includes("tagliata") || lowerName.includes("manzo")) {
+        photoId = "1544025162-d76694265947";
+      } else if (lowerName.includes("acqua") || lowerName.includes("bevanda")) {
+        photoId = "1548839140-29a749e1cf4d";
+      } else if (lowerName.includes("birra")) {
+        photoId = "1608270104343-24324e94b632";
+      } else {
+        const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const reliableIds = [
+          "1628258334105-2a0b3d6efee1",
+          "1546069901-ba9599a7e63c",
+          "1504674900247-0ec7fea793a1",
+          "1565557623246-28260adc2888"
+        ];
+        photoId = reliableIds[hash % reliableIds.length];
+      }
+      return `https://images.unsplash.com/photo-${photoId}?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D`;
+    }
+
+    // --- GENERATORE FOTO IA VIA PUTER.JS CON PROMPT CULINARIO OTTIMIZZATO ---
+    async function generateAIPlateImage(dishName, recipeArray, dishDesc) {
+      let ingredientsList = "fresh high quality ingredients";
+      if (recipeArray && recipeArray.length > 0) {
+        ingredientsList = recipeArray.map(i => `${i.qty}${i.unit} of ${i.name}`).join(', ');
+      }
+
+      // Prompt ingegnerizzato per foto professionali ad alto realismo
+      const prompt = `A professional gourmet food photograph of "${dishName}". Plated impeccably on a modern ceramic plate inside an exclusive Michelin-starred restaurant. Clearly visible ingredients and components: ${ingredientsList}. Additional description: ${dishDesc || 'Freshly prepared Italian culinary masterpiece'}. Shot with a professional DSLR camera, macro food photography, 85mm lens, soft warm studio lighting, shallow depth of field with a blurred background, appetizing textures, vibrant natural colors, ultra-realistic, 8k resolution.`;
+
+      try {
+        if (typeof puter !== 'undefined' && puter.ai && puter.ai.txt2img) {
+          const imageElement = await puter.ai.txt2img(prompt);
+          if (imageElement && imageElement.src) {
+            return imageElement.src;
+          }
+        }
+      } catch (err) {
+        console.warn("Generazione IA Puter temporaneamente non disponibile, utilizzo fallback stock:", err);
+      }
+      return getStockFoodImage(dishName);
+    }
+
+    // --- VALIDAZIONE & SALVATAGGIO IMMAGINE (URL / IA / STOCK) ---
+    async function validateAndSaveImage(urlInput, dishName, recipeArray, dishDesc, callback) {
+      const trimmed = urlInput ? urlInput.trim() : '';
+      if (trimmed) {
+        const imgTest = new Image();
+        imgTest.onload = function() { callback(trimmed); };
+        imgTest.onerror = function() {
+          alert(`Attenzione: L'URL inserito non è valido. Generazione automatica dell'immagine con IA in corso...`);
+          generateAIPlateImage(dishName, recipeArray, dishDesc).then(aiUrl => callback(aiUrl));
+        };
+        imgTest.src = trimmed;
+        return;
+      }
+
+      // Se l'URL è vuoto, genera automaticamente con Puter.js IA
+      const aiGeneratedUrl = await generateAIPlateImage(dishName, recipeArray, dishDesc);
+      callback(aiGeneratedUrl);
+    }
+
+    // --- MAGAZZINO MATERIE PRIME GREZZE ---
+    let rawMaterials = {
+      "Spaghetti": { qty: 5000, unit: "g", threshold: 1000 },
+      "Tagliatelle": { qty: 4000, unit: "g", threshold: 800 },
+      "Guanciale": { qty: 2000, unit: "g", threshold: 400 },
+      "Tuorlo": { qty: 60, unit: "pz", threshold: 15 },
+      "Pecorino": { qty: 1500, unit: "g", threshold: 300 },
+      "Pane": { qty: 30, unit: "pz", threshold: 8 },
+      "Pomodorini": { qty: 3000, unit: "g", threshold: 500 },
+      "Aglio": { qty: 500, unit: "g", threshold: 100 },
+      "Basilico": { qty: 200, unit: "g", threshold: 50 },
+      "Salumi Misti": { qty: 1500, unit: "g", threshold: 300 },
+      "Formaggi": { qty: 1500, unit: "g", threshold: 300 },
+      "Penne": { qty: 4000, unit: "g", threshold: 1000 },
+      "Peperoncino": { qty: 300, unit: "g", threshold: 50 },
+      "Sugo Pomodoro": { qty: 6000, unit: "g", threshold: 1200 },
+      "Macinato Manzo": { qty: 4000, unit: "g", threshold: 1000 },
+      "Manzo": { qty: 2500, unit: "g", threshold: 500 },
+      "Rosmarino": { qty: 150, unit: "g", threshold: 30 },
+      "Acqua 75cl": { qty: 50, unit: "bt", threshold: 10 },
+      "Birra 50cl": { qty: 20, unit: "bt", threshold: 5 }
+    };
+
+    // --- SEMILAVORATI ---
+    let semilavorati = {
+      "Ragù di Carne": {
+        qty: 1500,
+        unit: "g",
+        threshold: 400,
+        recipe: [
+          { name: "Sugo Pomodoro", qty: 60, unit: "g" },
+          { name: "Macinato Manzo", qty: 40, unit: "g" }
+        ]
+      }
+    };
+
+    // --- CATEGORIE ---
+    let categories = [
+      { id: 'antipasti', name: 'Antipasti' },
+      { id: 'primi', name: 'Primi' },
+      { id: 'secondi', name: 'Secondi' },
+      { id: 'bevande', name: 'Bevande' }
+    ];
+
+    // --- MENU DATA ---
+    let menuData = [
+      { 
+        id: 1, 
+        name: "Bruschette al Pomodoro", 
+        category: "antipasti", 
+        price: 6.50, 
+        prepTime: 8, 
+        allergens: ["Glutine"],
+        recipe: [
+          { name: "Pane", qty: 2, unit: "pz" },
+          { name: "Pomodorini", qty: 100, unit: "g" },
+          { name: "Aglio", qty: 5, unit: "g" }
+        ],
+        imageUrl: "", 
+        desc: "Pane casereccio tostato con pomodorini freschi e aglio" 
+      },
+      { 
+        id: 2, 
+        name: "Tagliatelle al Ragù", 
+        category: "primi", 
+        price: 12.00, 
+        prepTime: 14, 
+        allergens: ["Glutine", "Uova"],
+        recipe: [
+          { name: "Tagliatelle", qty: 100, unit: "g" },
+          { name: "Ragù di Carne", qty: 120, unit: "g" }
+        ],
+        imageUrl: "", 
+        desc: "Pasta fresca all'uovo con autentico ragù di carne cotto a lungo" 
+      },
+      { 
+        id: 3, 
+        name: "Spaghetti alla Carbonara", 
+        category: "primi", 
+        price: 11.00, 
+        prepTime: 15, 
+        allergens: ["Glutine", "Uova", "Lattosio"],
+        recipe: [
+          { name: "Spaghetti", qty: 100, unit: "g" },
+          { name: "Guanciale", qty: 50, unit: "g" },
+          { name: "Tuorlo", qty: 2, unit: "pz" },
+          { name: "Pecorino", qty: 30, unit: "g" }
+        ],
+        imageUrl: "", 
+        desc: "Guanciale croccante, tuorlo d'uovo, pecorino romano e pepe nero" 
+      }
+    ];
+
+    let currentCategoryFilter = 'tutti';
+    let cart = [];
+    let orders = [];
+    let currentOrderCodeNumber = 1;
+    let myOrderIds = [];
+
+    let newDishRecipeTemp = [];
+    let editingDishIdModal = null;
+    let currentSemiProducing = null;
+
+    // Inizializzazione
+    document.addEventListener("DOMContentLoaded", () => {
+      renderCategoryFilters();
+      renderMenu(currentCategoryFilter);
+      renderCart();
+      renderKitchen();
+      renderMonitor();
+      renderAdminCategories();
+      renderAdminCategorySelect();
+      renderAdminRawMaterials();
+      renderAdminSemilavorati();
+      renderAdminRecipeSelects();
+      renderNewDishRecipeList();
+      renderAdminList();
+      renderStats();
+      checkGlobalLowStockAlerts();
+      lucide.createIcons();
+
+      setInterval(updateKitchenTimers, 1000);
+      setInterval(updateCustomerOrdersDisplay, 10000);
+    });
+
+    function switchAdminSubTab(subTabName) {
+      ['piatti', 'semilavorati', 'magazzino', 'categorie'].forEach(tab => {
+        const sec = document.getElementById(`admin-section-${tab}`);
+        const btn = document.getElementById(`admin-subtab-${tab}`);
+        if (sec) sec.classList.add('hidden');
+        if (btn) btn.className = "px-3 py-1.5 rounded-lg text-slate-300 hover:text-white transition";
+      });
+      document.getElementById(`admin-section-${subTabName}`).classList.remove('hidden');
+      document.getElementById(`admin-subtab-${subTabName}`).className = "px-3 py-1.5 rounded-lg active-admin-subtab transition";
+      lucide.createIcons();
+    }
+
+    function getAllLowStockItems() {
+      let lowList = [];
+      Object.entries(rawMaterials).forEach(([name, data]) => {
+        if (data.qty <= data.threshold) lowList.push({ name, ...data, type: 'grezzo' });
+      });
+      Object.entries(semilavorati).forEach(([name, data]) => {
+        if (data.qty <= data.threshold) lowList.push({ name, ...data, type: 'semilavorato' });
+      });
+      return lowList;
+    }
+
+    function checkGlobalLowStockAlerts() {
+      const lowStockItems = getAllLowStockItems();
+      const kitchenBadge = document.getElementById('kitchen-alert-badge');
+      const kitchenBanner = document.getElementById('kitchen-low-stock-banner');
+      const kitchenListText = document.getElementById('kitchen-low-stock-list');
+
+      if (lowStockItems.length > 0) {
+        if (kitchenBadge) kitchenBadge.classList.remove('hidden');
+        if (kitchenBanner) kitchenBanner.classList.remove('hidden');
+        if (kitchenListText) {
+          kitchenListText.innerText = lowStockItems.map(i => `${i.name} (${i.qty} ${i.unit} rimanenti)`).join(' • ');
+        }
+      } else {
+        if (kitchenBadge) kitchenBadge.classList.add('hidden');
+        if (kitchenBanner) kitchenBanner.classList.add('hidden');
+      }
+    }
+
+    function renderAdminRecipeSelects() {
+      const selects = [document.getElementById('new-recipe-ing-select'), document.getElementById('modal-recipe-ing-select')];
+      selects.forEach(sel => {
+        if (!sel) return;
+        sel.innerHTML = '';
+        let semiGroup = document.createElement('optgroup');
+        semiGroup.label = "Semilavorati";
+        Object.keys(semilavorati).forEach(sName => {
+          semiGroup.innerHTML += `<option value="${sName}">${sName} (${semilavorati[sName].unit})</option>`;
+        });
+        sel.appendChild(semiGroup);
+        let rawGroup = document.createElement('optgroup');
+        rawGroup.label = "Materie Prime";
+        Object.keys(rawMaterials).forEach(matName => {
+          rawGroup.innerHTML += `<option value="${matName}">${matName} (${rawMaterials[matName].unit})</option>`;
+        });
+        sel.appendChild(rawGroup);
+      });
+    }
+
+    function isDishAvailable(dish) {
+      if (!dish.recipe || dish.recipe.length === 0) return true;
+      for (let ing of dish.recipe) {
+        if (semilavorati[ing.name]) {
+          if (semilavorati[ing.name].qty < ing.qty) return false;
+        } else if (rawMaterials[ing.name]) {
+          if (rawMaterials[ing.name].qty < ing.qty) return false;
+        } else { return false; }
+      }
+      return true;
+    }
+
+    function addNewSemilavorato() {
+      const name = document.getElementById('new-semi-name').value.trim();
+      const qty = parseFloat(document.getElementById('new-semi-qty').value);
+      const unit = document.getElementById('new-semi-unit').value.trim() || 'g';
+      const threshold = parseFloat(document.getElementById('new-semi-threshold').value);
+
+      if (!name || isNaN(qty)) { alert("Inserisci nome e quantità valida."); return; }
+      semilavorati[name] = { qty, unit, threshold: isNaN(threshold) ? 100 : threshold, recipe: [] };
+      document.getElementById('new-semi-name').value = '';
+      document.getElementById('new-semi-qty').value = '';
+      renderAdminSemilavorati();
+      renderAdminRecipeSelects();
+      checkGlobalLowStockAlerts();
+    }
+
+    function renderAdminSemilavorati() {
+      const grid = document.getElementById('admin-semilavorati-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      Object.entries(semilavorati).forEach(([name, data]) => {
+        const isLow = data.qty <= data.threshold;
+        const escapedName = name.replace(/'/g, "\\'");
+        let recipeStr = data.recipe && data.recipe.length > 0 ? data.recipe.map(r => `${r.qty}${r.unit} ${r.name}`).join(' + ') : '<em class="text-slate-500">Nessuna materia prima collegata</em>';
+
+        const card = document.createElement('div');
+        card.className = `p-4 rounded-xl border ${isLow ? 'bg-amber-950/20 border-amber-500/60' : 'bg-slate-900 border-slate-700'} space-y-3`;
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <h4 class="font-bold text-amber-400 text-sm">${name}</h4>
+              <span class="text-xs text-slate-300 font-mono">Disponibile: <strong>${data.qty} ${data.unit}</strong></span>
+            </div>
+            <button onclick="openProduceLotModal('${escapedName}')" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1 shadow">
+              <i data-lucide="hammer" class="w-3.5 h-3.5"></i> Produci Lotto
+            </button>
+          </div>
+          <div class="text-[11px] bg-slate-800 p-2 rounded border border-slate-700/60">${recipeStr}</div>
+          <div class="flex justify-end pt-1">
+            <button onclick="openEditSemiRecipeModal('${escapedName}')" class="text-xs text-amber-400 hover:underline flex items-center gap-1">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Configura Ricetta Base
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    function openProduceLotModal(name) {
+      currentSemiProducing = name;
+      document.getElementById('produce-lot-title').innerHTML = `<i data-lucide="hammer" class="w-5 h-5"></i> Produci: ${name}`;
+      document.getElementById('produce-lot-qty-input').value = '1000';
+      document.getElementById('produce-lot-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeProduceLotModal() {
+      document.getElementById('produce-lot-modal').classList.add('hidden');
+      currentSemiProducing = null;
+    }
+
+    function confirmProduceLot() {
+      if (!currentSemiProducing) return;
+      const qtyProduced = parseFloat(document.getElementById('produce-lot-qty-input').value);
+      if (isNaN(qtyProduced) || qtyProduced <= 0) { alert("Inserisci una quantità valida."); return; }
+
+      const semi = semilavorati[currentSemiProducing];
+      if (!semi.recipe || semi.recipe.length === 0) { alert("Configura prima la ricetta base!"); closeProduceLotModal(); return; }
+
+      const scaleFactor = qtyProduced / 1000;
+      let missingRaw = null;
+      semi.recipe.forEach(r => {
+        if (!rawMaterials[r.name] || rawMaterials[r.name].qty < (r.qty * scaleFactor)) missingRaw = r.name;
+      });
+
+      if (missingRaw) { alert(`Scorte insufficienti di materia prima: ${missingRaw}`); return; }
+
+      semi.recipe.forEach(r => { rawMaterials[r.name].qty -= (r.qty * scaleFactor); });
+      semi.qty += qtyProduced;
+
+      closeProduceLotModal();
+      renderAdminSemilavorati();
+      renderAdminRawMaterials();
+      renderMenu(currentCategoryFilter);
+      checkGlobalLowStockAlerts();
+      alert(`Lotto di ${qtyProduced} ${semi.unit} di ${currentSemiProducing} prodotto con successo!`);
+    }
+
+    let editingSemiModalName = null;
+    function openEditSemiRecipeModal(name) {
+      editingSemiModalName = name;
+      editingDishIdModal = null;
+      document.getElementById('modal-dish-title').innerHTML = `<i data-lucide="edit-3" class="w-5 h-5"></i> Ricetta Base: ${name}`;
+      document.getElementById('dish-general-fields').classList.add('hidden');
+      document.getElementById('modal-allergens-container').classList.add('hidden');
+      document.getElementById('edit-recipe-modal').classList.remove('hidden');
+      renderModalRecipeListForSemi();
+      renderAdminRecipeSelects();
+      lucide.createIcons();
+    }
+
+    function renderModalRecipeListForSemi() {
+      const container = document.getElementById('modal-recipe-items-list');
+      const semi = semilavorati[editingSemiModalName];
+      if (!container || !semi) return;
+      if (!semi.recipe || semi.recipe.length === 0) {
+        container.innerHTML = `<span class="text-slate-500 text-xs italic block text-center py-3">Nessun ingrediente configurato.</span>`;
+        return;
+      }
+      container.innerHTML = '';
+      semi.recipe.forEach((item, index) => {
+        container.innerHTML += `
+          <div class="flex justify-between items-center bg-slate-800 px-3 py-2 rounded-lg border border-slate-700 text-xs">
+            <span><strong class="text-amber-400">${item.name}</strong>: ${item.qty} ${item.unit}</span>
+            <button type="button" onclick="removeIngredientFromSemiRecipe(${index})" class="text-red-400 hover:text-red-300"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function removeIngredientFromSemiRecipe(index) {
+      const semi = semilavorati[editingSemiModalName];
+      if (semi && semi.recipe) { semi.recipe.splice(index, 1); renderModalRecipeListForSemi(); }
+    }
+
+    function switchTab(tabName) {
+      ['cliente', 'cucina', 'monitor', 'stats', 'admin'].forEach(tab => {
+        const view = document.getElementById(`view-${tab}`);
+        const btn = document.getElementById(`tab-${tab}`);
+        if (view) view.classList.add('hidden');
+        if (btn) btn.className = "px-3 py-2 rounded-md transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5";
+      });
+      document.getElementById(`view-${tabName}`).classList.remove('hidden');
+      document.getElementById(`tab-${tabName}`).className = "px-3 py-2 rounded-md transition-all active-tab flex items-center gap-1.5";
+      if (tabName === 'stats') renderStats();
+    }
+
+    function addNewCategory() {
+      const input = document.getElementById('new-category-name');
+      const name = input.value.trim();
+      if (!name) return;
+      const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
+      if (categories.some(c => c.id === id)) { alert("Categoria esistente!"); return; }
+      categories.push({ id, name });
+      input.value = '';
+      renderCategoryFilters();
+      renderAdminCategories();
+      renderAdminCategorySelect();
+    }
+
+    function deleteCategory(id) {
+      if (categories.length <= 1) return;
+      categories = categories.filter(c => c.id !== id);
+      if (currentCategoryFilter === id) currentCategoryFilter = 'tutti';
+      renderCategoryFilters();
+      renderAdminCategories();
+      renderAdminCategorySelect();
+      renderMenu(currentCategoryFilter);
+    }
+
+    function renderCategoryFilters() {
+      const container = document.getElementById('category-filters-container');
+      if (!container) return;
+      let html = `<button onclick="filterCategory('tutti', event)" class="cat-btn px-3 py-1.5 rounded-lg text-xs ${currentCategoryFilter === 'tutti' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} whitespace-nowrap transition">Tutti</button>`;
+      categories.forEach(cat => {
+        const isActive = currentCategoryFilter === cat.id;
+        html += `<button onclick="filterCategory('${cat.id}', event)" class="cat-btn px-3 py-1.5 rounded-lg text-xs ${isActive ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} whitespace-nowrap transition">${cat.name}</button>`;
+      });
+      container.innerHTML = html;
+    }
+
+    function renderAdminCategories() {
+      const container = document.getElementById('admin-categories-list');
+      if (!container) return;
+      container.innerHTML = '';
+      categories.forEach(cat => {
+        container.innerHTML += `
+          <div class="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-sm">
+            <span class="font-medium text-slate-200">${cat.name}</span>
+            <button onclick="deleteCategory('${cat.id}')" class="text-slate-400 hover:text-red-400 transition"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function renderAdminCategorySelect() {
+      [document.getElementById('dish-category'), document.getElementById('modal-dish-category')].forEach(select => {
+        if (!select) return;
+        select.innerHTML = '';
+        categories.forEach(cat => { select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`; });
+      });
+    }
+
+    function filterCategory(cat) {
+      currentCategoryFilter = cat;
+      renderCategoryFilters();
+      renderMenu(cat);
+    }
+
+    function renderMenu(category) {
+      const grid = document.getElementById('menu-items-grid');
+      const searchVal = document.getElementById('menu-search-input') ? document.getElementById('menu-search-input').value.toLowerCase() : '';
+      grid.innerHTML = '';
+
+      let filtered = category === 'tutti' ? menuData : menuData.filter(i => i.category === category);
+      if (searchVal) filtered = filtered.filter(i => i.name.toLowerCase().includes(searchVal) || (i.desc && i.desc.toLowerCase().includes(searchVal)));
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500">Nessun piatto trovato.</div>`;
+        return;
+      }
+
+      filtered.forEach(item => {
+        const available = isDishAvailable(item);
+        const dishImage = (item.imageUrl && item.imageUrl.trim() !== '') ? item.imageUrl : getStockFoodImage(item.name);
+        const ingredientsText = item.recipe && item.recipe.length > 0 ? item.recipe.map(r => r.name).join(', ') : 'Ingredienti freschi';
+        const allergensHtml = item.allergens && item.allergens.length > 0
+          ? item.allergens.map(a => `<span class="bg-red-500/15 text-red-300 border border-red-500/30 text-[10px] font-semibold px-1.5 py-0.5 rounded">${a}</span>`).join(' ')
+          : '<span class="text-[10px] text-emerald-400/80 font-medium">Nessun allergene principale</span>';
+
+        const card = document.createElement('div');
+        card.className = `bg-slate-800 border ${!available ? 'border-red-500/40 opacity-75' : 'border-slate-700/80 hover:border-amber-500/50'} rounded-xl overflow-hidden flex flex-col justify-between transition shadow-md`;
+        card.innerHTML = `
+          <div>
+            <div class="relative h-36 w-full bg-slate-900 overflow-hidden">
+              <img src="${dishImage}" alt="${item.name}" class="w-full h-full object-cover ${!available ? 'grayscale' : ''}">
+              ${!available ? '<div class="absolute inset-0 bg-slate-950/70 flex items-center justify-center"><span class="bg-red-600 text-white font-black text-sm px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">SOLD OUT</span></div>' : ''}
+            </div>
+            <div class="p-4 space-y-2">
+              <div class="flex justify-between items-start">
+                <h4 class="font-bold text-slate-100">${item.name}</h4>
+                <span class="font-extrabold text-amber-400">€${item.price.toFixed(2)}</span>
+              </div>
+              <div class="flex items-center gap-1 text-[11px] text-amber-400/90 font-medium">
+                <i data-lucide="clock" class="w-3 h-3"></i> ~${item.prepTime} min preparazione
+              </div>
+              <p class="text-xs text-slate-300 line-clamp-2">${item.desc || ''}</p>
+              <div class="pt-2 border-t border-slate-700/50 text-[11px]">
+                <span class="text-slate-400 font-semibold block">Componenti:</span>
+                <span class="text-slate-300 italic">${ingredientsText}</span>
+              </div>
+              <div class="pt-1 flex flex-wrap gap-1 items-center">
+                <span class="text-[10px] text-slate-400 mr-1 font-semibold">Allergeni:</span>
+                ${allergensHtml}
+              </div>
+            </div>
+          </div>
+          <div class="p-4 pt-2">
+            <button onclick="addToCart(${item.id})" ${!available ? 'disabled' : ''} class="w-full ${!available ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-700 hover:bg-amber-500 hover:text-slate-950 text-slate-200'} font-semibold text-xs py-2 rounded-lg transition flex items-center justify-center gap-1.5">
+              <i data-lucide="${!available ? 'ban' : 'plus'}" class="w-3.5 h-3.5"></i> ${!available ? 'Non disponibile' : 'Aggiungi all\'ordine'}
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    function calculateQueuePrepTime() {
+      const pendingOrders = orders.filter(o => o.status === 'in_attesa');
+      let queueMinutes = 0;
+      pendingOrders.forEach(ord => {
+        let maxOrderDishTime = 0;
+        ord.items.forEach(i => { if (i.prepTime > maxOrderDishTime) maxOrderDishTime = i.prepTime; });
+        queueMinutes += maxOrderDishTime;
+      });
+      return queueMinutes;
+    }
+
+    function calculateCartPrepTime() {
+      if (cart.length === 0) return 0;
+      let maxCartDishTime = 0;
+      cart.forEach(item => { if (item.prepTime > maxCartDishTime) maxCartDishTime = item.prepTime; });
+      return maxCartDishTime;
+    }
+
+    function addToCart(id) {
+      const item = menuData.find(i => i.id === id);
+      if (!item || !isDishAvailable(item)) return;
+      cart.push({ ...item, qty: 1, note: '', ready: false });
+      renderCart();
+    }
+
+    function changeCartItemQty(index, delta) {
+      cart[index].qty += delta;
+      if (cart[index].qty <= 0) cart.splice(index, 1);
+      renderCart();
+    }
+
+    function updateCartItemNote(index, val) { cart[index].note = val; }
+
+    function renderCart() {
+      const container = document.getElementById('cart-items');
+      const countBadge = document.getElementById('cart-count');
+      const totalSpan = document.getElementById('cart-total');
+      const timeSpan = document.getElementById('cart-estimated-time');
+
+      if (cart.length === 0) {
+        container.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">Il carrello è vuoto.</p>`;
+        countBadge.innerText = '0 elementi';
+        totalSpan.innerText = '€0.00';
+        timeSpan.innerText = '~0 min';
+        return;
+      }
+
+      container.innerHTML = '';
+      let total = 0, count = 0;
+      cart.forEach((item, index) => {
+        total += item.price * item.qty;
+        count += item.qty;
+        container.innerHTML += `
+          <div class="bg-slate-900/70 p-3 rounded-lg border border-slate-700/60 text-sm space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="font-medium text-slate-200 text-xs">${item.name}</div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-amber-400">€${(item.price * item.qty).toFixed(2)}</span>
+                <button onclick="changeCartItemQty(${index}, -1)" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 flex items-center justify-center font-bold text-xs">-</button>
+                <span class="text-xs font-bold w-3 text-center">${item.qty}</span>
+                <button onclick="changeCartItemQty(${index}, 1)" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 flex items-center justify-center font-bold text-xs">+</button>
+              </div>
+            </div>
+            <div>
+              <input type="text" value="${item.note || ''}" placeholder="Note..." oninput="updateCartItemNote(${index}, this.value)" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200">
+            </div>
+          </div>
+        `;
+      });
+      const estimatedTotalMin = calculateQueuePrepTime() + calculateCartPrepTime();
+      countBadge.innerText = `${count} elementi`;
+      totalSpan.innerText = `€${total.toFixed(2)}`;
+      timeSpan.innerText = `~${estimatedTotalMin} min`;
+    }
+
+    function submitOrder() {
+      if (cart.length === 0) { alert("Carrello vuoto!"); return; }
+      cart.forEach(cartItem => {
+        if (cartItem.recipe) {
+          cartItem.recipe.forEach(ing => {
+            if (semilavorati[ing.name]) {
+              semilavorati[ing.name].qty -= (ing.qty * cartItem.qty);
+              if (semilavorati[ing.name].qty < 0) semilavorati[ing.name].qty = 0;
+            } else if (rawMaterials[ing.name]) {
+              rawMaterials[ing.name].qty -= (ing.qty * cartItem.qty);
+              if (rawMaterials[ing.name].qty < 0) rawMaterials[ing.name].qty = 0;
+            }
+          });
+        }
+      });
+
+      const tableInput = document.getElementById('table-input').value.trim() || 'Tavolo generico';
+      const code = 'A' + String(currentOrderCodeNumber).padStart(2, '0');
+      currentOrderCodeNumber++;
+
+      const newOrder = {
+        id: Date.now(),
+        code,
+        table: tableInput,
+        items: cart.map(i => ({ ...i, ready: false })),
+        status: 'in_attesa',
+        createdAt: Date.now(),
+        estimatedMinutes: calculateQueuePrepTime() + calculateCartPrepTime(),
+        realPreparationMinutes: 0,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      orders.push(newOrder);
+      myOrderIds.push(newOrder.id);
+      cart = [];
+      document.getElementById('table-input').value = '';
+
+      renderCart();
+      renderMenu(currentCategoryFilter);
+      renderAdminRawMaterials();
+      renderAdminSemilavorati();
+      checkGlobalLowStockAlerts();
+      updateCustomerOrdersDisplay();
+      renderKitchen();
+      renderMonitor();
+      alert(`Ordine ${code} inviato con successo!`);
+    }
+
+    function updateCustomerOrdersDisplay() {
+      const container = document.getElementById('customer-active-orders-container');
+      const listContainer = document.getElementById('customer-orders-list');
+      const myActiveOrders = orders.filter(o => myOrderIds.includes(o.id));
+      if (myActiveOrders.length === 0) { container.classList.add('hidden'); return; }
+
+      container.classList.remove('hidden');
+      listContainer.innerHTML = '';
+      myActiveOrders.forEach(order => {
+        const remainingMinutes = Math.max(1, order.estimatedMinutes - Math.floor((Date.now() - order.createdAt) / 60000));
+        let statusText = order.status === 'pronto' ? "PRONTO PER IL RITIRO 🔔" : (order.status === 'ritirato' ? "Consegnato ✓" : "In preparazione ⏳");
+        let badgeColor = order.status === 'pronto' ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 animate-pulse" : "bg-amber-500/20 text-amber-300 border-amber-500/30";
+
+        listContainer.innerHTML += `
+          <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-lg space-y-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="text-2xl font-black text-amber-500">${order.code}</span>
+                <span class="text-xs text-slate-400 block">${order.table} • ${order.time}</span>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold border ${badgeColor}">${statusText}</span>
+            </div>
+            <div class="space-y-1.5 pt-1 text-xs">${order.items.map(i => `<div><strong>${i.qty}x</strong> ${i.name}</div>`).join('')}</div>
+            <div class="pt-2 border-t border-slate-700 flex justify-between items-center text-xs text-slate-400">
+              <span>Stimato: <strong class="text-amber-400">~${remainingMinutes} min</strong></span>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function markBatchAsReady(dishName) {
+      orders.forEach(order => {
+        if (order.status === 'in_attesa') {
+          order.items.forEach(item => { if (item.name === dishName) item.ready = true; });
+          if (order.items.every(i => i.ready)) finalizeOrderReady(order.id);
+        }
+      });
+      renderKitchen();
+      updateCustomerOrdersDisplay();
+    }
+
+    function toggleItemReady(orderId, itemIndex) {
+      const order = orders.find(o => o.id === orderId);
+      if (order && order.items[itemIndex]) {
+        order.items[itemIndex].ready = !order.items[itemIndex].ready;
+        renderKitchen();
+        updateCustomerOrdersDisplay();
+      }
+    }
+
+    function finalizeOrderReady(orderId) {
+      const order = orders.find(o => o.id === orderId);
+      if (order && order.status === 'in_attesa') {
+        order.items.forEach(i => i.ready = true);
+        order.status = 'pronto';
+        order.realPreparationMinutes = Math.max(1, Math.round((Date.now() - order.createdAt) / 60000));
+        renderKitchen();
+        renderMonitor();
+        updateCustomerOrdersDisplay();
+        playChime();
+      }
+    }
+
+    function updateKitchenTimers() {
+      document.querySelectorAll('.kitchen-timer-badge').forEach(el => {
+        el.innerText = `${Math.floor((Date.now() - parseInt(el.getAttribute('data-created'))) / 60000)} min fa`;
+      });
+    }
+
+    function renderKitchen() {
+      renderKitchenBatchSummary();
+      renderKitchenOrdersGrid();
+    }
+
+    function renderKitchenBatchSummary() {
+      const container = document.getElementById('kitchen-batch-summary');
+      if (!container) return;
+      container.innerHTML = '';
+      const pendingOrders = orders.filter(o => o.status === 'in_attesa');
+      if (pendingOrders.length === 0) { container.innerHTML = `<div class="col-span-full text-center py-6 text-slate-500 text-sm">Nessuna comanda attiva.</div>`; return; }
+
+      let batchMap = {};
+      pendingOrders.forEach(ord => {
+        ord.items.forEach(i => {
+          if (!batchMap[i.name]) batchMap[i.name] = { name: i.name, totalQty: 0, pendingQty: 0, notes: [] };
+          batchMap[i.name].totalQty += i.qty;
+          if (!i.ready) {
+            batchMap[i.name].pendingQty += i.qty;
+            if (i.note) batchMap[i.name].notes.push({ table: ord.table, note: i.note, qty: i.qty });
+          }
+        });
+      });
+
+      Object.values(batchMap).forEach(batch => {
+        const isCompleted = batch.pendingQty === 0;
+        const escapedName = batch.name.replace(/'/g, "\\'");
+        let notesHtml = batch.notes.length > 0 ? `<div class="bg-amber-500/10 p-2 rounded text-[11px] text-amber-300">${batch.notes.map(n => `<strong>${n.qty}x (${n.table}):</strong> ${n.note}`).join('<br>')}</div>` : '';
+
+        container.innerHTML += `
+          <div class="border p-4 rounded-xl flex flex-col justify-between shadow space-y-3 ${isCompleted ? 'bg-emerald-950/20 border-emerald-500/50' : 'bg-slate-900 border-slate-700'}">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-xs text-slate-300">${batch.name}</div>
+                <div class="text-2xl font-black ${isCompleted ? 'text-emerald-400' : 'text-amber-400'}">${batch.pendingQty} <span class="text-xs font-normal text-slate-400">da fare</span></div>
+              </div>
+              <button onclick="markBatchAsReady('${escapedName}')" ${isCompleted ? 'disabled' : ''} class="${isCompleted ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500 hover:bg-amber-600 text-slate-950'} font-bold px-3 py-2 rounded-lg text-xs transition">Segna Pronto</button>
+            </div>
+            ${notesHtml}
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function renderKitchenOrdersGrid() {
+      const grid = document.getElementById('kitchen-orders-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      const pendingOrders = orders.filter(o => o.status === 'in_attesa');
+      if (pendingOrders.length === 0) { grid.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500">Nessun ordine singolo.</div>`; return; }
+
+      pendingOrders.forEach(order => {
+        const allItemsReady = order.items.every(i => i.ready);
+        let itemsHtml = order.items.map((i, index) => `
+          <div onclick="toggleItemReady(${order.id}, ${index})" class="flex flex-col border-b border-slate-700/50 py-2 px-2 rounded cursor-pointer hover:bg-slate-700/40 text-sm">
+            <div class="flex items-center justify-between">
+              <span class="${i.ready ? 'text-emerald-400 font-bold line-through' : 'text-slate-200'}"><strong>${i.qty}x</strong> ${i.name}</span>
+            </div>
+            ${i.note ? `<div class="text-xs text-amber-400 font-bold">⚠️ ${i.note}</div>` : ''}
+          </div>
+        `).join('');
+
+        grid.innerHTML += `
+          <div class="border-2 rounded-xl p-4 space-y-4 shadow-lg ${allItemsReady ? 'bg-slate-800/90 border-emerald-500' : 'bg-slate-800 border-amber-500/60'}">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+              <div>
+                <span class="text-3xl font-extrabold text-amber-500">${order.code}</span>
+                <span class="text-xs text-slate-400 block">${order.table}</span>
+              </div>
+              <span class="text-xs bg-slate-900 border border-slate-700 px-2.5 py-1 rounded font-mono text-amber-400 kitchen-timer-badge" data-created="${order.createdAt}">0m</span>
+            </div>
+            <div class="space-y-1">${itemsHtml}</div>
+            <button onclick="finalizeOrderReady(${order.id})" class="w-full ${allItemsReady ? 'bg-emerald-600 animate-pulse' : 'bg-slate-700 hover:bg-emerald-600'} text-white font-bold py-2 rounded-lg text-xs">Segna Ordine PRONTO 🔔</button>
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function markAsPickedUp(orderId) {
+      const order = orders.find(o => o.id === orderId);
+      if (order) { order.status = 'ritirato'; renderMonitor(); updateCustomerOrdersDisplay(); renderStats(); }
+    }
+
+    function renderMonitor() {
+      const display = document.getElementById('ready-orders-display');
+      if (!display) return;
+      display.innerHTML = '';
+      const readyOrders = orders.filter(o => o.status === 'pronto');
+      if (readyOrders.length === 0) { display.innerHTML = `<div class="col-span-full text-center py-16 text-slate-500 text-lg">Nessun ordine pronto.</div>`; return; }
+
+      readyOrders.forEach(order => {
+        display.innerHTML += `
+          <div class="bg-slate-800 border-2 border-emerald-500 rounded-2xl p-5 text-center shadow-xl animate-pulse flex flex-col justify-between">
+            <div>
+              <span class="text-xs text-emerald-400 uppercase font-bold tracking-wider mb-1 block">Ritira al Banco</span>
+              <div class="text-5xl font-black text-emerald-400 my-1">${order.code}</div>
+              <span class="text-sm font-medium text-slate-300 block mb-4">${order.table}</span>
+            </div>
+            <button onclick="markAsPickedUp(${order.id})" class="w-full bg-slate-700 hover:bg-emerald-600 text-slate-200 font-bold py-2 rounded-lg text-xs">Segna Ritirato</button>
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function onStatsFilterChange() {
+      document.getElementById('stat-custom-dates').classList.toggle('hidden', document.getElementById('stat-scale-select').value !== 'personalizzata');
+      renderStats();
+    }
+
+    function getFilteredOrders() {
+      const period = document.getElementById('stat-period-select').value;
+      const now = Date.now();
+      const oneDayMs = 86400000;
+      return orders.filter(order => {
+        const orderDate = new Date(order.createdAt);
+        if (period === 'oggi') return orderDate.toDateString() === new Date().toDateString();
+        if (period === 'ieri') return orderDate.toDateString() === new Date(now - oneDayMs).toDateString();
+        if (period === 'ultimi7') return (now - order.createdAt) <= (7 * oneDayMs);
+        if (period === 'ultimi30') return (now - order.createdAt) <= (30 * oneDayMs);
+        return true;
+      });
+    }
+
+    let currentFilteredOrdersForModal = [];
+
+    function renderStats() {
+      const filteredOrders = getFilteredOrders();
+      currentFilteredOrdersForModal = filteredOrders;
+      let totalRevenue = 0, dishCounts = {}, ingredientConsumptions = {};
+
+      filteredOrders.forEach(order => {
+        order.items.forEach(item => {
+          totalRevenue += (item.price * item.qty);
+          dishCounts[item.name] = (dishCounts[item.name] || 0) + item.qty;
+          if (item.recipe) {
+            item.recipe.forEach(ing => {
+              if (!ingredientConsumptions[ing.name]) ingredientConsumptions[ing.name] = { qty: 0, unit: ing.unit };
+              ingredientConsumptions[ing.name].qty += (ing.qty * item.qty);
+            });
+          }
+        });
+      });
+
+      document.getElementById('stat-total-revenue').innerText = `€${totalRevenue.toFixed(2)}`;
+      document.getElementById('stat-total-orders').innerText = filteredOrders.length;
+      
+      let topDish = "--", maxQty = 0;
+      Object.entries(dishCounts).forEach(([name, qty]) => { if (qty > maxQty) { maxQty = qty; topDish = `${name} (${qty}x)`; } });
+      document.getElementById('stat-top-dish').innerText = topDish;
+
+      const lowGrid = document.getElementById('stats-low-stock-grid');
+      lowGrid.innerHTML = '';
+      const lowItems = getAllLowStockItems();
+      if (lowItems.length === 0) lowGrid.innerHTML = `<div class="col-span-full text-emerald-400 text-xs">✓ Scorte regolari.</div>`;
+      else {
+        lowItems.forEach(i => {
+          lowGrid.innerHTML += `<div class="p-3 rounded-xl border bg-amber-950/30 border-amber-500/60 text-amber-300 flex justify-between text-xs"><span>${i.name}</span><strong>${i.qty} ${i.unit}</strong></div>`;
+        });
+      }
+
+      const chartContainer = document.getElementById('dish-sales-chart');
+      chartContainer.innerHTML = '';
+      Object.entries(dishCounts).sort((a,b) => b[1] - a[1]).forEach(([name, qty]) => {
+        chartContainer.innerHTML += `<div class="text-xs space-y-1"><div class="flex justify-between font-semibold text-slate-200"><span>${name}</span><span class="text-amber-400">${qty} venduti</span></div></div>`;
+      });
+      lucide.createIcons();
+    }
+
+    function openRevenueBreakdownModal() { document.getElementById('revenue-modal').classList.remove('hidden'); }
+    function closeRevenueModal() { document.getElementById('revenue-modal').classList.add('hidden'); }
+    function openOrdersHistoryModal() {
+      const body = document.getElementById('orders-modal-body');
+      body.innerHTML = '';
+      currentFilteredOrdersForModal.forEach(o => {
+        body.innerHTML += `<div class="bg-slate-900 p-3 rounded border border-slate-700 text-xs"><strong>${o.code}</strong> - ${o.table} (${o.time})</div>`;
+      });
+      document.getElementById('orders-history-modal').classList.remove('hidden');
+    }
+    function closeOrdersHistoryModal() { document.getElementById('orders-history-modal').classList.add('hidden'); }
+
+    function addNewRawMaterial() {
+      const name = document.getElementById('new-mat-name').value.trim();
+      const qty = parseFloat(document.getElementById('new-mat-qty').value);
+      const unit = document.getElementById('new-mat-unit').value.trim() || 'g';
+      const threshold = parseFloat(document.getElementById('new-mat-threshold').value);
+      if (!name || isNaN(qty)) return;
+      rawMaterials[name] = { qty, unit, threshold: isNaN(threshold) ? 5 : threshold };
+      document.getElementById('new-mat-name').value = '';
+      document.getElementById('new-mat-qty').value = '';
+      renderAdminRawMaterials();
+      renderAdminRecipeSelects();
+    }
+
+    function updateRawMaterial(name, field, val) {
+      if (rawMaterials[name]) rawMaterials[name][field] = parseFloat(val) || val;
+    }
+
+    function deleteRawMaterial(name) { delete rawMaterials[name]; renderAdminRawMaterials(); renderAdminRecipeSelects(); }
+
+    function renderAdminRawMaterials() {
+      const grid = document.getElementById('admin-raw-materials-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      Object.entries(rawMaterials).forEach(([name, data]) => {
+        const escaped = name.replace(/'/g, "\\'");
+        grid.innerHTML += `
+          <div class="p-3 rounded-xl border bg-slate-900 border-slate-700 space-y-2">
+            <div class="flex justify-between items-start"><span class="font-bold text-xs text-slate-100">${name}</span><button onclick="deleteRawMaterial('${escaped}')" class="text-red-400"><i data-lucide="x" class="w-3.5 h-3.5"></i></button></div>
+            <input type="number" step="0.1" value="${data.qty}" onchange="updateRawMaterial('${escaped}', 'qty', this.value)" class="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-slate-100 text-xs font-bold text-center">
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function addIngredientToNewDishForm() {
+      const select = document.getElementById('new-recipe-ing-select');
+      const qty = parseFloat(document.getElementById('new-recipe-ing-qty').value);
+      if (!select.value || isNaN(qty)) return;
+      const unit = semilavorati[select.value] ? semilavorati[select.value].unit : rawMaterials[select.value].unit;
+      newDishRecipeTemp.push({ name: select.value, qty, unit });
+      renderNewDishRecipeList();
+      document.getElementById('dish-allergens').value = autoDetectAllergens(newDishRecipeTemp).join(', ');
+    }
+
+    function removeIngredientFromNewDishForm(index) {
+      newDishRecipeTemp.splice(index, 1);
+      renderNewDishRecipeList();
+      document.getElementById('dish-allergens').value = autoDetectAllergens(newDishRecipeTemp).join(', ');
+    }
+
+    function renderNewDishRecipeList() {
+      const container = document.getElementById('new-dish-recipe-list');
+      if (!container) return;
+      if (newDishRecipeTemp.length === 0) { container.innerHTML = `<span class="text-slate-500 text-xs italic block text-center py-2">Nessun ingrediente</span>`; return; }
+      container.innerHTML = '';
+      newDishRecipeTemp.forEach((item, index) => {
+        container.innerHTML += `<div class="flex justify-between items-center bg-slate-800 px-2 py-1 rounded text-xs"><span><strong>${item.name}</strong>: ${item.qty} ${item.unit}</span><button type="button" onclick="removeIngredientFromNewDishForm(${index})" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`;
+      });
+      lucide.createIcons();
+    }
+
+    async function addNewDish(event) {
+      event.preventDefault();
+      const name = document.getElementById('dish-name').value.trim();
+      const category = document.getElementById('dish-category').value;
+      const price = parseFloat(document.getElementById('dish-price').value);
+      const prepTime = parseInt(document.getElementById('dish-prep-time').value) || 10;
+      const allergens = document.getElementById('dish-allergens').value.split(',').map(a => a.trim()).filter(a => a);
+      const rawImageUrl = document.getElementById('dish-image').value.trim();
+      const desc = document.getElementById('dish-desc').value.trim();
+      const recipe = [...newDishRecipeTemp];
+
+      if (!name || isNaN(price)) return;
+
+      // Generazione automatica IA se l'URL è vuoto
+      validateAndSaveImage(rawImageUrl, name, recipe, desc, function(finalImageUrl) {
+        menuData.push({ id: Date.now(), name, category, price, prepTime, allergens, recipe, imageUrl: finalImageUrl, desc });
+        document.getElementById('add-dish-form').reset();
+        newDishRecipeTemp = [];
+        renderNewDishRecipeList();
+        renderMenu(currentCategoryFilter);
+        renderAdminList();
+      });
+    }
+
+    function deleteDish(id) { menuData = menuData.filter(d => d.id !== id); renderMenu(currentCategoryFilter); renderAdminList(); }
+
+    function renderAdminList() {
+      const container = document.getElementById('admin-dish-list');
+      if (!container) return;
+      container.innerHTML = '';
+      menuData.forEach(dish => {
+        const dishImage = dish.imageUrl || getStockFoodImage(dish.name);
+        container.innerHTML += `
+          <div class="flex items-center justify-between bg-slate-900 p-3.5 rounded-lg border border-slate-700">
+            <div class="flex items-center gap-3">
+              <img src="${dishImage}" class="w-12 h-12 rounded-lg object-cover bg-slate-800">
+              <div><span class="font-bold text-slate-100 text-sm">${dish.name}</span><span class="block text-xs text-amber-400">€${dish.price.toFixed(2)}</span></div>
+            </div>
+            <button onclick="deleteDish(${dish.id})" class="p-2 bg-slate-800 hover:bg-red-600 text-slate-400 rounded-lg"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function openEditRecipeModal(id) {
+      editingDishIdModal = id;
+      const dish = menuData.find(d => d.id === id);
+      if (!dish) return;
+      document.getElementById('modal-dish-name').value = dish.name;
+      document.getElementById('edit-recipe-modal').classList.remove('hidden');
+    }
+    function closeEditRecipeModal() { document.getElementById('edit-recipe-modal').classList.add('hidden'); }
+    function addIngredientToModalRecipe() {}
+
+    function playChime() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+      } catch (e) {}
+    }
+  </script>
+</body>
+</html>
